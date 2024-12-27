@@ -101,6 +101,7 @@ class TrainDataLoader(AbstractDataLoader):
     """
     General dataloader with negative sampling.
     """
+    # TrainDataLoader(config, train_dataset, batch_size=config['train_batch_size'], shuffle=True)
     def __init__(self, config, dataset, batch_size=1, shuffle=False):
         super().__init__(config, dataset, additional_dataset=None,
                          batch_size=batch_size, neg_sampling=True, shuffle=shuffle)
@@ -110,14 +111,18 @@ class TrainDataLoader(AbstractDataLoader):
         # full items in training.
         self._user = self.dataset.df[self.dataset.uid_field]
         self._item = self.dataset.df[self.dataset.iid_field]
+        # uid 중복 없이 list
         self.all_items = self.dataset.df[self.dataset.iid_field].unique().tolist()
+        # iid 중복 없이 numpy
         self.all_uids = self.dataset.df[self.dataset.uid_field].unique()
+        # 중복 없이 set
         self.all_items_set = set(self.all_items)
         self.all_users_set = set(self.all_uids)
         self.all_item_len = len(self.all_items)
         # if full sampling
         self.use_full_sampling = config['use_full_sampling']
 
+        # True
         if config['use_neg_sampling']:
             if self.use_full_sampling:
                 self.sample_func = self._get_full_uids_sample
@@ -319,6 +324,7 @@ class TrainDataLoader(AbstractDataLoader):
         iid_field = self.dataset.iid_field
         # load avail items for all uid
         iid_freq = self.dataset.df.groupby(iid_field)[uid_field]
+        # i -> user, u_ls -> user와 상호작용한 items
         for i, u_ls in iid_freq:
             self.history_users_per_i[i] = set(u_ls.values)
         return self.history_users_per_i
@@ -339,8 +345,12 @@ class EvalDataLoader(AbstractDataLoader):
         self.eval_len_list = []
         self.train_pos_len_list = []
 
+        # 중복 없는 uid
         self.eval_u = self.dataset.df[self.dataset.uid_field].unique()
         # special for eval dataloader
+        # (2, user*item) shape
+        # [1,1,2,2,3,3,3,3] -> user. item num
+        # [0,1,3,1,3,4,5,7] -> item
         self.pos_items_per_u = self._get_pos_items_per_u(self.eval_u).to(self.device)
         self._get_eval_items_per_u(self.eval_u)
         # to device
@@ -376,6 +386,7 @@ class EvalDataLoader(AbstractDataLoader):
         uid_field = self.additional_dataset.uid_field
         iid_field = self.additional_dataset.iid_field
         # load avail items for all uid
+        # Training dataset
         uid_freq = self.additional_dataset.df.groupby(uid_field)[iid_field]
         u_ids = []
         i_ids = []

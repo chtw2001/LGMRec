@@ -21,6 +21,7 @@ class RecDataset(object):
             self.df = df
             return
         # if all files exists
+        # inter_file_name는 1개. dataset.inter
         check_file_list = [self.config['inter_file_name']]
         for i in check_file_list:
             file_path = os.path.join(self.dataset_path, i)
@@ -29,12 +30,14 @@ class RecDataset(object):
 
         # load rating file from data path?
         self.load_inter_graph(config['inter_file_name'])
+        # 최대 user/item의 id + 1
         self.item_num = int(max(self.df[self.iid_field].values)) + 1
         self.user_num = int(max(self.df[self.uid_field].values)) + 1
 
     def load_inter_graph(self, file_name):
         inter_file = os.path.join(self.dataset_path, file_name)
         cols = [self.uid_field, self.iid_field, self.splitting_label]
+        # .inter 파일에서 uid, iid, x_lable을 읽은 dataframe 생성
         self.df = pd.read_csv(inter_file, usecols=cols, sep=self.config['field_separator'])
         if not self.df.columns.isin(cols).all():
             raise ValueError('File {} lost some required columns.'.format(inter_file))
@@ -48,9 +51,11 @@ class RecDataset(object):
             dfs.append(temp_df)
         if self.config['filter_out_cod_start_users']:
             # filtering out new users in val/test sets
+            # train_u -> 중복 없는 splitting_label이 0인 row의 uid
             train_u = set(dfs[0][self.uid_field].values)
             for i in [1, 2]:
                 dropped_inter = pd.Series(True, index=dfs[i].index)
+                # XOR연산으로 train_u에 없는 row 반환.
                 dropped_inter ^= dfs[i][self.uid_field].isin(train_u)
                 dfs[i].drop(dfs[i].index[dropped_inter], inplace=True)
 
@@ -70,6 +75,8 @@ class RecDataset(object):
                 """
         nxt = RecDataset(self.config, new_df)
 
+        # training dataset에 없는 행을 삭제해도 item/user_num은 갱신되지 않음
+        # __init__ 코드에서 갱신하기 전에 반환함
         nxt.item_num = self.item_num
         nxt.user_num = self.user_num
         return nxt

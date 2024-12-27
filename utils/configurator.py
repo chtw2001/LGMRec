@@ -91,7 +91,9 @@ class Config(object):
 
     def _set_default_parameters(self):
         smaller_metric = ['rmse', 'mae', 'logloss']
+        # recall@20
         valid_metric = self.final_config_dict['valid_metric'].split('@')[0]
+        # True
         self.final_config_dict['valid_metric_bigger'] = False if valid_metric in smaller_metric else True
         # if seed not in hyper_parameters, then add
         if "seed" not in self.final_config_dict['hyper_parameters']:

@@ -26,6 +26,7 @@ def quick_start(model, dataset, config_dict, save_model=True):
     # print dataset statistics
     logger.info(str(dataset))
 
+    # 3개의 dataset에는 모두 동일한 user만 있음
     train_dataset, valid_dataset, test_dataset = dataset.split()
     logger.info('\n====Training====\n' + str(train_dataset))
     logger.info('\n====Validation====\n' + str(valid_dataset))
@@ -39,6 +40,7 @@ def quick_start(model, dataset, config_dict, save_model=True):
 
     ############ Dataset loadded, run model
     hyper_ret = []
+    # recall
     val_metric = config['valid_metric'].lower()
     best_test_value = 0.0
     idx = best_test_idx = 0
@@ -54,6 +56,7 @@ def quick_start(model, dataset, config_dict, save_model=True):
     # combinations
     combinators = list(product(*hyper_ls))
     total_loops = len(combinators)
+    # grid search
     for hyper_tuple in combinators:
         # random seed reset
         for j, k in zip(config['hyper_parameters'], hyper_tuple):
