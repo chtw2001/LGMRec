@@ -28,6 +28,7 @@ class TopKEvaluator(object):
         self.metrics = config['metrics']
         self.topk = config['topk']
         self.save_recom_result = config['save_recommended_topk']
+        # metric, topKd의 유효성 검증
         self._check_args()
 
     def collect(self, interaction, scores_tensor, full=False):

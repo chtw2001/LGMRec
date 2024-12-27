@@ -11,13 +11,13 @@ class LGMRec(GeneralRecommender):
     def __init__(self, config, dataset):
         super(LGMRec, self).__init__(config, dataset)
 
-        self.embedding_dim = config['embedding_size']
-        self.feat_embed_dim = config['feat_embed_dim']
-        self.cf_model = config['cf_model']
-        self.n_mm_layer = config['n_mm_layers']
-        self.n_ui_layers = config['n_ui_layers']
-        self.n_hyper_layer = config['n_hyper_layer']
-        self.hyper_num = config['hyper_num']
+        self.embedding_dim = config['embedding_size'] # 64
+        self.feat_embed_dim = config['feat_embed_dim'] # 64
+        self.cf_model = config['cf_model'] # lightgcn
+        self.n_mm_layer = config['n_mm_layers'] # [2]
+        self.n_ui_layers = config['n_ui_layers'] # dataset마다 다름. [2] or [4]
+        self.n_hyper_layer = config['n_hyper_layer'] # dataset마다 다름. [1] or [2]
+        self.hyper_num = config['hyper_num']# # dataset마다 다름. [4] or [64]
         self.keep_rate = config['keep_rate']
         self.alpha = config['alpha']
         self.cl_weight = config['cl_weight']

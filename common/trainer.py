@@ -42,7 +42,7 @@ class AbstractTrainer(object):
 class Trainer(AbstractTrainer):
     r"""The basic Trainer for basic training and evaluation strategies in recommender systems. This class defines common
     functions for training and evaluation processes of most recommender system models, including fit(), evaluate(),
-   and some other features helpful for model training and evaluation.
+    and some other features helpful for model training and evaluation.
 
     Generally speaking, this class can serve most recommender system models, If the training process of the model is to
     simply optimize a single loss without involving any complex training strategies, such as adversarial learning,
@@ -58,27 +58,29 @@ class Trainer(AbstractTrainer):
         super(Trainer, self).__init__(config, model)
 
         self.logger = getLogger()
+        # adam
         self.learner = config['learner']
         self.learning_rate = config['learning_rate']
-        self.epochs = config['epochs']
-        self.eval_step = min(config['eval_step'], self.epochs)
+        self.epochs = config['epochs'] # 1000
+        self.eval_step = min(config['eval_step'], self.epochs) # 1
         self.stopping_step = config['stopping_step']
-        self.clip_grad_norm = config['clip_grad_norm']
-        self.valid_metric = config['valid_metric'].lower()
-        self.valid_metric_bigger = config['valid_metric_bigger']
-        self.test_batch_size = config['eval_batch_size']
+        self.clip_grad_norm = config['clip_grad_norm'] # 없음
+        self.valid_metric = config['valid_metric'].lower() # recall
+        self.valid_metric_bigger = config['valid_metric_bigger'] # True
+        self.test_batch_size = config['eval_batch_size'] # 4096
         self.device = config['device']
         self.weight_decay = 0.0
         if config['weight_decay'] is not None:
             wd = config['weight_decay']
             self.weight_decay = eval(wd) if isinstance(wd, str) else wd
 
-        self.req_training = config['req_training']
+        self.req_training = config['req_training'] # True
 
         self.start_epoch = 0
         self.cur_step = 0
 
         tmp_dd = {}
+        # 초기 metric은 모두 0.0
         for j, k in list(itertools.product(config['metrics'], config['topk'])):
             tmp_dd[f'{j.lower()}@{k}'] = 0.0
         self.best_valid_score = -1
@@ -88,11 +90,13 @@ class Trainer(AbstractTrainer):
         self.optimizer = self._build_optimizer()
 
         #fac = lambda epoch: 0.96 ** (epoch / 50)
+        # 50 epoch마다 학습률을 0.96씩 감소
         lr_scheduler = config['learning_rate_scheduler']        # check zero?
         fac = lambda epoch: lr_scheduler[0] ** (epoch / lr_scheduler[1])
         scheduler = optim.lr_scheduler.LambdaLR(self.optimizer, lr_lambda=fac)
         self.lr_scheduler = scheduler
 
+        # eval_type은 설정된 것이 없음
         self.eval_type = config['eval_type']
         self.evaluator = TopKEvaluator(config)
 
