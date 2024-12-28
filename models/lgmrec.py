@@ -80,6 +80,7 @@ class LGMRec(GeneralRecommender):
     # collaborative graph embedding
     def cge(self):
         if self.cf_model == 'mf':
+            # (user_num + item_num, 64)
             cge_embs = torch.cat((self.user_embedding.weight, self.item_id_embedding.weight), dim=0)
         if self.cf_model == 'lightgcn':
             ego_embeddings = torch.cat((self.user_embedding.weight, self.item_id_embedding.weight), dim=0)
@@ -89,16 +90,20 @@ class LGMRec(GeneralRecommender):
                 cge_embs += [ego_embeddings]
             cge_embs = torch.stack(cge_embs, dim=1)
             cge_embs = cge_embs.mean(dim=1, keepdim=False)
+        # (user_num + item_num, 64)
         return cge_embs
     
     # modality graph embedding
     def mge(self, str='v'):
         if str == 'v':
+            # (item_num, 64)
             item_feats = torch.mm(self.image_embedding.weight, self.item_image_trs)
         elif str == 't':
             item_feats = torch.mm(self.text_embedding.weight, self.item_text_trs)
+        # (user_num, 64) * 정규화 항
         user_feats = torch.sparse.mm(self.adj, item_feats) * self.num_inters[:self.n_users]
         # user_feats = self.user_embedding.weight
+        # (user_num + item_num, 64)
         mge_feats = torch.concat([user_feats, item_feats], dim=0)
         for _ in range(self.n_mm_layer):
             mge_feats = torch.sparse.mm(self.norm_adj, mge_feats)
@@ -106,13 +111,18 @@ class LGMRec(GeneralRecommender):
     
     def forward(self):
         # hyperedge dependencies constructing
+        # hyper egde가 보이지 않음. 이해가 어렵넹
         if self.v_feat is not None:
+            # shape -> (item_num, hyper_layer_num)
             iv_hyper = torch.mm(self.image_embedding.weight, self.v_hyper)
+            # shape -> (user_num, hyper_layer_num)
             uv_hyper = torch.mm(self.adj, iv_hyper)
-            iv_hyper = F.gumbel_softmax(iv_hyper, self.tau, dim=1, hard=False)
+            iv_hyper = F.gumbel_softmax(iv_hyper, self.tau, dim=1, hard=False) # self.tau -> 0.2
             uv_hyper = F.gumbel_softmax(uv_hyper, self.tau, dim=1, hard=False)
         if self.t_feat is not None:
+            # shape -> (item_num, hyper_layer_num)
             it_hyper = torch.mm(self.text_embedding.weight, self.t_hyper)
+            # shape -> (user_num, hyper_layer_num)
             ut_hyper = torch.mm(self.adj, it_hyper)
             it_hyper = F.gumbel_softmax(it_hyper, self.tau, dim=1, hard=False)
             ut_hyper = F.gumbel_softmax(ut_hyper, self.tau, dim=1, hard=False)
@@ -122,16 +132,20 @@ class LGMRec(GeneralRecommender):
         
         if self.v_feat is not None and self.t_feat is not None:
             # MGE: modal graph embedding
+            # (user_num + item_num, 64)
             v_feats = self.mge('v')
             t_feats = self.mge('t')
             # local embeddings = collaborative-related embedding + modality-related embedding
             mge_embs = F.normalize(v_feats) + F.normalize(t_feats)
+            # lge는 Local(user-item) Global(image/text) embedding 이라는 뜻인가?
             lge_embs = cge_embs + mge_embs
             # GHE: global hypergraph embedding
+            # cge_embs에서 item만 넘겨주네?
             uv_hyper_embs, iv_hyper_embs = self.hgnnLayer(self.drop(iv_hyper), self.drop(uv_hyper), cge_embs[self.n_users:])
             ut_hyper_embs, it_hyper_embs = self.hgnnLayer(self.drop(it_hyper), self.drop(ut_hyper), cge_embs[self.n_users:])
             av_hyper_embs = torch.concat([uv_hyper_embs, iv_hyper_embs], dim=0)
             at_hyper_embs = torch.concat([ut_hyper_embs, it_hyper_embs], dim=0)
+            # global hyper edge embedding?
             ghe_embs = av_hyper_embs + at_hyper_embs
             # local embeddings + alpha * global embeddings
             all_embs = lge_embs + self.alpha * F.normalize(ghe_embs)
@@ -148,11 +162,14 @@ class LGMRec(GeneralRecommender):
         bpr_loss = -torch.mean(F.logsigmoid(pos_scores - neg_scores))
         return bpr_loss
     
+    # self-supervised learning loss
     def ssl_triple_loss(self, emb1, emb2, all_emb):
         norm_emb1 = F.normalize(emb1)
         norm_emb2 = F.normalize(emb2)
         norm_all_emb = F.normalize(all_emb)
+        # visual, text 각각의 modal로 학습한 embedding이 얼마나 닮아있는지 계산
         pos_score = torch.exp(torch.mul(norm_emb1, norm_emb2).sum(dim=1) / self.tau)
+        # 첫번째 매개변수로만 계산하는 이유는 무엇일까? visual이 더 강한 modal이라서?
         ttl_score = torch.exp(torch.matmul(norm_emb1, norm_all_emb.T) / self.tau).sum(dim=1)
         ssl_loss = -torch.log(pos_score / ttl_score).sum()
         return ssl_loss
@@ -165,6 +182,10 @@ class LGMRec(GeneralRecommender):
         return reg_loss
 
     def calculate_loss(self, interaction):
+        # interaction -> TrainDataLoader._get_neg_sample()의 반환 값
+        # ua_embeddings -> u_embs, 
+        # ia_embeddings -> i_embs, 
+        # hyper_embeddings -> [uv_hyper_embs, iv_hyper_embs, ut_hyper_embs, it_hyper_embs]
         ua_embeddings, ia_embeddings, hyper_embeddings = self.forward()
 
         users = interaction[0]
@@ -177,6 +198,7 @@ class LGMRec(GeneralRecommender):
         batch_bpr_loss = self.bpr_loss(u_g_embeddings, pos_i_g_embeddings, neg_i_g_embeddings)
 
         [uv_embs, iv_embs, ut_embs, it_embs] = hyper_embeddings
+        # multi modal hyper egde embedding에 대해 user, item 각각의 self-supervised loss? contrastive loss?
         batch_hcl_loss = self.ssl_triple_loss(uv_embs[users], ut_embs[users], ut_embs) + self.ssl_triple_loss(iv_embs[pos_items], it_embs[pos_items], it_embs)
         
         batch_reg_loss = self.reg_loss(u_g_embeddings, pos_i_g_embeddings, neg_i_g_embeddings)
@@ -188,6 +210,8 @@ class LGMRec(GeneralRecommender):
     def full_sort_predict(self, interaction):
         user = interaction[0]
         user_embs, item_embs, _ = self.forward()
+        # multi modal에 대한 점수는 계산하지 않음
+        # 특정 user와 전체 item에 대한 내적을 계산하여 score를 반환
         scores = torch.matmul(user_embs[user], item_embs.T)
         return scores
 

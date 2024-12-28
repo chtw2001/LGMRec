@@ -225,6 +225,7 @@ class TrainDataLoader(AbstractDataLoader):
     def _next_batch_data(self):
         return self.sample_func()
 
+    # train data에는 이 함수가 반복적으로 수행되면서 데이터를 반환
     def _get_neg_sample(self):
         cur_data = self.dataset[self.pr: self.pr + self.step]
         self.pr += self.step
@@ -237,6 +238,7 @@ class TrainDataLoader(AbstractDataLoader):
         # sampling negative items only in the dataset (train)
         neg_ids = self._sample_neg_ids(u_ids).to(self.device)
         # for neighborhood loss
+        # neighborhood_loss_required라는 hyper parameter가 없음.
         if self.neighborhood_loss_required:
             i_ids = cur_data[self.config['ITEM_ID_FIELD']]
             pos_neighbors, neg_neighbors = self._get_neighborhood_samples(i_ids, self.config['ITEM_ID_FIELD'])

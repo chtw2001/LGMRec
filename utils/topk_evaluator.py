@@ -65,10 +65,14 @@ class TopKEvaluator(object):
             dict: such as ``{'Hit@20': 0.3824, 'Recall@20': 0.0527, 'Hit@10': 0.3153, 'Recall@10': 0.0329}``
 
         """
+        # validation dataset에서 user에 대한 positive item을 반환
         pos_items = eval_data.get_eval_items()
+        # user별 positive item의 개수.
         pos_len_list = eval_data.get_eval_len_list()
+        # 차원을 -1 하여 합침
         topk_index = torch.cat(batch_matrix_list, dim=0).cpu().numpy()
         # if save recommendation result?
+        # test할 때에도 is_test는 False임
         if self.save_recom_result and is_test:
             dataset_name = self.config['dataset']
             model_name = self.config['model']
@@ -87,6 +91,7 @@ class TopKEvaluator(object):
         # if recom right?
         bool_rec_matrix = []
         for m, n in zip(pos_items, topk_index):
+            # topk index가 positive item에 있으면 True 아니면 False
             bool_rec_matrix.append([True if i in m else False for i in n])
         bool_rec_matrix = np.asarray(bool_rec_matrix)
 

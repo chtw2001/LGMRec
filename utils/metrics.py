@@ -7,6 +7,7 @@ import numpy as np
 
 def recall_(pos_index, pos_len):
     # Recall: average single users recall ratio.
+    # cumulative sum
     rec_ret = np.cumsum(pos_index, axis=1) / pos_len.reshape(-1, 1)
     return rec_ret.mean(axis=0)
 
@@ -105,6 +106,7 @@ def precision_(pos_index, pos_len):
 Useful when we have to serialize evaluation metric names
 and call the functions based on deserialized names
 """
+# ["Recall", "NDCG", "Precision", "MAP"]
 metrics_dict = {
     'ndcg': ndcg_,
     'recall': recall_,

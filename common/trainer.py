@@ -156,6 +156,8 @@ class Trainer(AbstractTrainer):
                 self.logger.info('Loss is nan at epoch: {}, batch index: {}. Exiting.'.format(epoch_idx, batch_idx))
                 return loss, torch.tensor(0.0)
             loss.backward()
+            # clip_grad_norm에 대한 hyper parameter가 없음
+            # gradient clipping
             if self.clip_grad_norm:
                 clip_grad_norm_(self.model.parameters(), **self.clip_grad_norm)
             self.optimizer.step()
@@ -209,7 +211,7 @@ class Trainer(AbstractTrainer):
         for epoch_idx in range(self.start_epoch, self.epochs):
             # train
             training_start_time = time()
-            self.model.pre_epoch_processing()
+            self.model.pre_epoch_processing() # 아직 구현 안되어있음
             train_loss, _ = self._train_epoch(train_data, epoch_idx)
             if torch.is_tensor(train_loss):
                 # get nan loss
@@ -222,6 +224,7 @@ class Trainer(AbstractTrainer):
             training_end_time = time()
             train_loss_output = \
                 self._generate_train_loss_output(epoch_idx, training_start_time, training_end_time, train_loss)
+            # 구현 안되어있음
             post_info = self.model.post_epoch_processing()
             if verbose:
                 self.logger.info(train_loss_output)
@@ -229,6 +232,7 @@ class Trainer(AbstractTrainer):
                     self.logger.info(post_info)
 
             # eval: To ensure the test result is the best model under validation data, set self.eval_step == 1
+            # 1 epoch 마다 validation 진행
             if (epoch_idx + 1) % self.eval_step == 0:
                 valid_start_time = time()
                 valid_score, valid_result = self._valid_epoch(valid_data)
@@ -240,6 +244,7 @@ class Trainer(AbstractTrainer):
                                      (epoch_idx, valid_end_time - valid_start_time, valid_score)
                 valid_result_output = 'valid result: \n' + dict2str(valid_result)
                 # test
+                # 1 epoch 마다 test도 진행
                 _, test_result = self._valid_epoch(test_data)
                 if verbose:
                     self.logger.info(valid_score_output)
@@ -274,8 +279,10 @@ class Trainer(AbstractTrainer):
         for batch_idx, batched_data in enumerate(eval_data):
             # predict: interaction without item ids
             scores = self.model.full_sort_predict(batched_data)
+            # positive items
             masked_items = batched_data[1]
             # mask out pos items
+            # user의 positive item을 매우 작은 값으로 세팅
             scores[masked_items[0], masked_items[1]] = -1e10
             # rank and get top-k
             _, topk_index = torch.topk(scores, max(self.config['topk']), dim=-1)  # nusers x topk
