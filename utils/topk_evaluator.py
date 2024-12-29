@@ -66,10 +66,13 @@ class TopKEvaluator(object):
 
         """
         # validation dataset에서 user에 대한 positive item을 반환
+        # (user_num, max(positive items)) shape
         pos_items = eval_data.get_eval_items()
         # user별 positive item의 개수.
+        # (user_num, 1)
         pos_len_list = eval_data.get_eval_len_list()
         # 차원을 -1 하여 합침
+        # (batch_size, user_num, topK) -> (all_user_num, topK)
         topk_index = torch.cat(batch_matrix_list, dim=0).cpu().numpy()
         # if save recommendation result?
         # test할 때에도 is_test는 False임
@@ -90,9 +93,12 @@ class TopKEvaluator(object):
         assert len(pos_len_list) == len(topk_index)
         # if recom right?
         bool_rec_matrix = []
+        # (all_user_num, topK)
         for m, n in zip(pos_items, topk_index):
-            # topk index가 positive item에 있으면 True 아니면 False
+            # i -> topK에 들어있는 item의 id. itemID가 positive item에 있으면 True 아니면 False
             bool_rec_matrix.append([True if i in m else False for i in n])
+        # (all_user_num, topK)
+        # e.g. topK -> [0, 1, 1, 1, 0]
         bool_rec_matrix = np.asarray(bool_rec_matrix)
 
         # get metrics

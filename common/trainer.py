@@ -244,7 +244,7 @@ class Trainer(AbstractTrainer):
                                      (epoch_idx, valid_end_time - valid_start_time, valid_score)
                 valid_result_output = 'valid result: \n' + dict2str(valid_result)
                 # test
-                # 1 epoch 마다 test도 진행
+                # 1 epoch 마다 test도 진행. test 결과는 무조건 logger에 저장
                 _, test_result = self._valid_epoch(test_data)
                 if verbose:
                     self.logger.info(valid_score_output)
@@ -278,6 +278,7 @@ class Trainer(AbstractTrainer):
         batch_matrix_list = []
         for batch_idx, batched_data in enumerate(eval_data):
             # predict: interaction without item ids
+            # (user_num, item_num)
             scores = self.model.full_sort_predict(batched_data)
             # positive items
             masked_items = batched_data[1]
@@ -285,7 +286,9 @@ class Trainer(AbstractTrainer):
             # user의 positive item을 매우 작은 값으로 세팅
             scores[masked_items[0], masked_items[1]] = -1e10
             # rank and get top-k
+            # (user_num, topK)
             _, topk_index = torch.topk(scores, max(self.config['topk']), dim=-1)  # nusers x topk
+            # (batch_size, user_num, topK)
             batch_matrix_list.append(topk_index)
         return self.evaluator.evaluate(batch_matrix_list, eval_data, is_test=is_test, idx=idx)
 
